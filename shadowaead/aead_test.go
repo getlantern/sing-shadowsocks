@@ -169,6 +169,14 @@ func TestDiscardAcrossChunks(t *testing.T) {
 	if err != nil || b != 'f' {
 		t.Fatalf("got %q, %v", b, err)
 	}
+	// Discarding past the cache releases the buffer before blocking on the
+	// next chunk, and holds none once the upstream ends.
+	if err := reader.Discard(10); err != io.EOF {
+		t.Fatalf("want EOF, got %v", err)
+	}
+	if reader.buffer != nil {
+		t.Fatal("reader holds its buffer after discarding to EOF")
+	}
 }
 
 // An empty chunk must not leave ReadByte indexing a buffer with nothing

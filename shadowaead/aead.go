@@ -242,7 +242,7 @@ func (r *Reader) Discard(n int) error {
 		} else if r.cached > 0 {
 			n -= r.cached
 			r.cached = 0
-			r.index = 0
+			r.release()
 		}
 		err := r.readInternal()
 		if err != nil {
