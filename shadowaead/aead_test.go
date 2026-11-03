@@ -171,6 +171,29 @@ func TestDiscardAcrossChunks(t *testing.T) {
 	}
 }
 
+// An empty chunk must not leave ReadByte indexing a buffer with nothing
+// cached: with pooling, that buffer can hold another connection's plaintext.
+func TestReadByteSkipsEmptyChunks(t *testing.T) {
+	var wire bytes.Buffer
+	writer := NewWriter(&wire, newTestAEAD(t), 65535)
+	if err := writer.WriteVectorised([]*buf.Buffer{buf.As([]byte{}), buf.As([]byte("ab"))}); err != nil {
+		t.Fatal(err)
+	}
+	reader := NewReader(&wire, newTestAEAD(t), 65535)
+	for _, want := range []byte("ab") {
+		b, err := reader.ReadByte()
+		if err != nil || b != want {
+			t.Fatalf("got %q, %v, want %q", b, err, want)
+		}
+	}
+	if _, err := reader.ReadByte(); err != io.EOF {
+		t.Fatalf("want EOF after the data, got %v", err)
+	}
+	if reader.Cached() != 0 || reader.buffer != nil {
+		t.Fatalf("cached %d, buffer held %v", reader.Cached(), reader.buffer != nil)
+	}
+}
+
 func BenchmarkConnectionSetup(b *testing.B) {
 	b.ReportAllocs()
 	aead := newTestAEAD(b)

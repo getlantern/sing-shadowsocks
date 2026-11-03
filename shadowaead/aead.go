@@ -128,6 +128,7 @@ func (r *Reader) readPayload(length int) error {
 	increaseNonce(r.nonce)
 	r.cached = length
 	r.index = 0
+	r.release()
 	return nil
 }
 
@@ -161,12 +162,22 @@ func (r *Reader) WriteTo(writer io.Writer) (n int64, err error) {
 	}
 }
 
+// readInternal skips empty chunks, so callers that index the buffer after it
+// returns always have cached data to read.
 func (r *Reader) readInternal() error {
-	length, err := r.readLength()
-	if err != nil {
-		return err
+	for {
+		length, err := r.readLength()
+		if err != nil {
+			return err
+		}
+		err = r.readPayload(length)
+		if err != nil {
+			return err
+		}
+		if r.cached > 0 {
+			return nil
+		}
 	}
-	return r.readPayload(length)
 }
 
 func (r *Reader) ReadByte() (byte, error) {
